@@ -16,30 +16,29 @@ type Logger struct {
 
 type LoggerOption func(*Logger)
 
-// WithGroup 添加组
 func WithGroup(name string) LoggerOption {
 	return func(l *Logger) {
 		l.logger = l.logger.WithGroup(name)
 	}
 }
 
-type myHandler struct {
+type handler struct {
 	w      io.Writer
 	opts   slog.HandlerOptions
 	groups []string
 }
 
-func NewGroupPrefixHandler(w io.Writer, opts *slog.HandlerOptions) *myHandler {
+func NewGroupPrefixHandler(w io.Writer, opts *slog.HandlerOptions) *handler {
 	if opts == nil {
 		opts = &slog.HandlerOptions{}
 	}
-	return &myHandler{
+	return &handler{
 		w:    w,
 		opts: *opts,
 	}
 }
 
-func (h *myHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (h *handler) Enabled(ctx context.Context, level slog.Level) bool {
 	minLevel := slog.LevelInfo
 	if h.opts.Level != nil {
 		minLevel = h.opts.Level.Level()
@@ -47,7 +46,7 @@ func (h *myHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return level >= minLevel
 }
 
-func (h *myHandler) Handle(ctx context.Context, r slog.Record) error {
+func (h *handler) Handle(ctx context.Context, r slog.Record) error {
 	// 构建组名字符串
 	groupStr := ""
 	if len(h.groups) > 0 {
@@ -106,9 +105,9 @@ func (h *myHandler) Handle(ctx context.Context, r slog.Record) error {
 	_, err := h.w.Write([]byte(output))
 	return err
 }
-func (h *myHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h *handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	// 创建新 Handler 副本
-	newHandler := &myHandler{
+	newHandler := &handler{
 		w:      h.w,
 		opts:   h.opts,
 		groups: make([]string, len(h.groups)),
@@ -117,9 +116,9 @@ func (h *myHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return newHandler
 }
 
-func (h *myHandler) WithGroup(name string) slog.Handler {
+func (h *handler) WithGroup(name string) slog.Handler {
 	// 创建新 Handler 副本
-	newHandler := &myHandler{
+	newHandler := &handler{
 		w:      h.w,
 		opts:   h.opts,
 		groups: make([]string, len(h.groups), len(h.groups)+1),
