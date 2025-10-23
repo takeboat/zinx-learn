@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"zinx/logger"
+	"zinx/utils"
+	"zinx/ziface"
 )
 
 type Server struct {
@@ -13,15 +15,20 @@ type Server struct {
 	IP        string
 	Port      int
 	Log       *logger.Logger
+	Router    ziface.IRouter
 }
 
-func NewServer(name string) *Server {
+func NewServer(name string) ziface.IServer {
+	// 初始化全局配置文件
+	utils.GlobalObject.Reload()
+
 	return &Server{
 		Name:      name,
 		IPVersion: "tcp4",
 		IP:        "0.0.0.0",
 		Port:      8999,
 		Log:       logger.NewLogger(logger.WithGroup("zinx-s")),
+		Router:    nil,
 	}
 }
 
@@ -36,6 +43,7 @@ func CallBack(conn *net.TCPConn, data []byte, cnt int) error {
 }
 func (s *Server) Start() {
 	s.Log.Info("server start", "name", s.Name, "ip", s.IP, "port", s.Port)
+	s.Log.Info("MetaData", "version", utils.GlobalObject.Version, "max_conn", utils.GlobalObject.MaxConn, "max_packet_size", utils.GlobalObject.MaxPacketSize)
 	// 解析ip地址
 	go func() {
 		addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.IP, s.Port))
@@ -61,7 +69,7 @@ func (s *Server) Start() {
 			}
 			s.Log.Info("accept success", "remoteAddr", conn.RemoteAddr().String())
 			// 创建新的链接对象 并且去调用链接业务
-			dealConn := NewConnection(conn, cid, CallBack)
+			dealConn := NewConnection(conn, cid, s.Router)
 			cid++
 			go dealConn.Start()
 		}
@@ -69,11 +77,15 @@ func (s *Server) Start() {
 }
 
 func (s *Server) Stop() {
-	panic("not impl")
+	s.Log.Error("server stop not impl")
 }
 
 func (s *Server) Serve() {
 	s.Start()
 	// TODO 可以做其他业务
 	select {}
+}
+func (s *Server) AddRouter(router ziface.IRouter) {
+	s.Router = router
+	s.Log.Info("add router success", "router", router)
 }

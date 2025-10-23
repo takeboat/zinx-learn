@@ -1,0 +1,8 @@
+{
+  "name": "demo server",
+  "host": "127.0.0.1",
+  "tcp_port": 8999,
+  "version": "v0.4",
+  "max_conn": 12000,
+  "max_packet_size": 4096
+}

@@ -13,22 +13,21 @@ type Connection struct {
 	Conn     *net.TCPConn
 	ConnID   uint32
 	isClosed bool
-	// 当前链接绑定的处理业务的方法
-	handleApi ziface.HandleFunc
 	// 退出的channel
 	ExitChan chan struct{}
 	// 增加日志
-	Log *logger.Logger
+	Log    *logger.Logger
+	Router ziface.IRouter
 }
 
-func NewConnection(conn *net.TCPConn, connID uint32, callback ziface.HandleFunc) *Connection {
+func NewConnection(conn *net.TCPConn, connID uint32, r ziface.IRouter) *Connection {
 	c := &Connection{
-		Conn:      conn,
-		ConnID:    connID,
-		handleApi: callback,
-		isClosed:  false,
-		ExitChan:  make(chan struct{}),
-		Log:       logger.NewLogger(logger.WithGroup("connection")),
+		Conn:     conn,
+		ConnID:   connID,
+		isClosed: false,
+		Router:   r,
+		ExitChan: make(chan struct{}),
+		Log:      logger.NewLogger(logger.WithGroup("connection")),
 	}
 	return c
 }
@@ -47,12 +46,12 @@ func (c *Connection) StartReader() {
 			c.Log.Error("read from client failed", "connID", c.ConnID, "remoteAddr", c.RemoteAddr().String(), "error", err)
 			continue
 		}
-		// 调用当前链接的业务方法
-		if err := c.handleApi(c.Conn, buf, cnt); err != nil {
-			c.Log.Error("handle msg failed", "connID", c.ConnID, "remoteAddr", c.RemoteAddr().String(), "error", err)
-			close(c.ExitChan)
-			return
-		}
+		req := &Request{conn: c, data: buf[:cnt]}
+		go func(request ziface.IRequest) {
+			c.Router.PreHandle(request)
+			c.Router.Handle(request)
+			c.Router.PostHandle(request)
+		}(req)
 	}
 }
 func (c *Connection) Start() {
