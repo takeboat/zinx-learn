@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"time"
+	"zinx/znet"
 )
 
 // mock 模拟客户端
@@ -21,21 +22,23 @@ func main() {
 		fmt.Println("client exit...")
 	}()
 	fmt.Println("client link success...")
+	var id uint32
+	dp := znet.NewDataPack()
 	for {
 		// 发送数据
-		_, err := conn.Write([]byte("Hello from client\n"))
+		id++
+		msg := znet.NewMsgPackage(id, []byte("Hello from client"))
+		data, err := dp.Pack(msg)
+		if err != nil {
+			fmt.Println("pack error:", err)
+			return
+		}
+		_, err = conn.Write(data)
 		if err != nil {
 			slog.Error("write error:", "err", err)
 			return
 		}
-		// 读取响应
-		buf := make([]byte, 512)
-		n, err := conn.Read(buf)
-		if err != nil {
-			slog.Error("read error:", "err", err)
-			return
-		}
-		slog.Info("receive from server:", "data", string(buf[:n]))
+		slog.Info("write success...")
 		// cpu 休眠1秒
 		time.Sleep(1 * time.Second)
 	}
