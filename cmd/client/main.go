@@ -76,7 +76,7 @@ func main() {
 			}
 			slog.Info("write success...")
 			// cpu 休眠1秒
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}()
 
