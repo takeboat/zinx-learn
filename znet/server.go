@@ -46,6 +46,9 @@ func (s *Server) Start() {
 	s.Log.Info("MetaData", "version", utils.GlobalObject.Version, "max_conn", utils.GlobalObject.MaxConn, "max_packet_size", utils.GlobalObject.MaxPacketSize)
 	// 解析ip地址
 	go func() {
+		// 开启工作池
+		s.msgHandler.StartWorkerPool()
+
 		addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.IP, s.Port))
 		if err != nil {
 			s.Log.Error("resolve ip error", "err", err)

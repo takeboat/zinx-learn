@@ -1,9 +1,11 @@
 package znet
 
 import (
+	"errors"
 	"io"
 	"net"
 	"zinx/logger"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -19,6 +21,8 @@ type Connection struct {
 	// 增加日志
 	Log        *logger.Logger
 	MsgHandler ziface.IMsgHandle
+	// 无缓冲管道， 用于读写两个goroutine之间的消息通信
+	msgChan chan []byte
 }
 
 func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
@@ -29,6 +33,7 @@ func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandl
 		ExitChan:   make(chan struct{}),
 		Log:        logger.NewLogger(logger.WithGroup("connection")),
 		MsgHandler: msgHandler,
+		msgChan:    make(chan []byte),
 	}
 	return c
 }
@@ -63,12 +68,33 @@ func (c *Connection) StartReader() {
 		}
 		msg.SetData(data)
 		req := &Request{conn: c, msg: msg}
-		go c.MsgHandler.DoMsgHandler(req)
+		if utils.GlobalObject.WorkerPoolSize > 0 {
+			// 已经启动工作池机制，将消息交给Worker处理
+			c.MsgHandler.SendMsgToTaskQueue(req)
+		} else {
+			go c.MsgHandler.DoMsgHandler(req)
+		}
+	}
+}
+func (c *Connection) StartWriter() {
+	c.Log.Info("writer goroutine is running")
+	defer c.Log.Info("writer goroutine is exit")
+	for {
+		select {
+		case data := <-c.msgChan:
+			if _, err := c.Conn.Write(data); err != nil {
+				c.Log.Error("write msg error:", "err", err)
+				return
+			}
+		case <-c.ExitChan:
+			return
+		}
 	}
 }
 func (c *Connection) Start() {
 	c.Log.Info("connection start", "connID", c.ConnID)
 	go c.StartReader()
+	go c.StartWriter()
 	<-c.ExitChan
 	c.Log.Info("connection stop", "connID", c.ConnID)
 }
@@ -94,6 +120,16 @@ func (c *Connection) GetConnID() uint32 {
 func (c *Connection) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
 }
-func (c *Connection) SendMsg(data []byte) error {
+func (c *Connection) SendMsg(msgId uint32, data []byte) error {
+	if c.isClosed {
+		return errors.New("connection closed")
+	}
+	dp := NewDataPack()
+	msg, err := dp.Pack(NewMsgPackage(msgId, data))
+	if err != nil {
+		c.Log.Error("pack error:", "err", err)
+		return err
+	}
+	c.msgChan <- msg
 	return nil
 }

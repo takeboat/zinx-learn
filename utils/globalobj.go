@@ -7,13 +7,18 @@ import (
 )
 
 type GlobalObj struct {
-	TcpServer     ziface.IServer // 当前Zinx全局的Server对象
-	Host          string         `json:"host"`            // TCP服务地址
-	TcpPort       int            `json:"tcp_port"`        // TCP服务端口号
-	Name          string         `json:"name"`            // 服务器名称
-	Version       string         `json:"version"`         // Zinx版本号
-	MaxPacketSize uint32         `json:"mac_packet_size"` // 数据包的最大值
-	MaxConn       uint32         `json:"mac_conn"`        // 当前服务器主机允许的最大链接个数
+	TcpServer ziface.IServer // 当前Zinx全局的Server对象
+	Host      string         `json:"host"`     // TCP服务地址
+	TcpPort   int            `json:"tcp_port"` // TCP服务端口号
+	Name      string         `json:"name"`     // 服务器名称
+
+	Version          string `json:"version"`             // Zinx版本号
+	MaxPacketSize    uint32 `json:"mac_packet_size"`     // 数据包的最大值
+	MaxConn          uint32 `json:"mac_conn"`            // 当前服务器主机允许的最大链接个数
+	WorkerPoolSize   uint32 `json:"worker_pool_size"`    // 工作池大小
+	MaxWorkerTaskLen uint32 `json:"max_worker_task_len"` // 当前工作池最大任务长度
+	// config
+	ConfFilePath string `json:"conf_file_path"`
 }
 
 var GlobalObject *GlobalObj
@@ -31,12 +36,15 @@ func (g *GlobalObj) Reload() {
 
 func init() {
 	GlobalObject = &GlobalObj{
-		Name:          "ZinxServerApp",
-		Version:       "V0.4",
-		TcpPort:       8999,
-		Host:          "0.0.0.0",
-		MaxPacketSize: 4096,
-		MaxConn:       12000,
+		Name:             "ZinxServerApp",
+		Version:          "V0.8",
+		TcpPort:          8999,
+		Host:             "0.0.0.0",
+		MaxPacketSize:    4096,
+		MaxConn:          12000,
+		WorkerPoolSize:   10,
+		MaxWorkerTaskLen: 1024,
+		ConfFilePath:     "conf/zinx.json",
 	}
 	GlobalObject.Reload()
 }

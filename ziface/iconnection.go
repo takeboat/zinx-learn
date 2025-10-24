@@ -14,7 +14,7 @@ type IConnection interface {
 	// 获取远程客户端的地址信息
 	RemoteAddr() net.Addr
 	// 发送消息给客户端
-	SendMsg(data []byte) error
+	SendMsg(msgId uint32, data []byte) error
 }
 
 // 定义处理链接的方法
