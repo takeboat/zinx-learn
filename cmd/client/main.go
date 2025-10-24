@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 	"zinx/znet"
 )
@@ -18,28 +22,65 @@ func main() {
 		panic(err)
 	}
 	defer conn.Close()
-	defer func() {
-		fmt.Println("client exit...")
-	}()
 	fmt.Println("client link success...")
-	var id uint32
+	PingId := uint32(1)
+	helloId := uint32(2)
 	dp := znet.NewDataPack()
-	for {
-		// 发送数据
-		id++
-		msg := znet.NewMsgPackage(id, []byte("Hello from client"))
-		data, err := dp.Pack(msg)
-		if err != nil {
-			fmt.Println("pack error:", err)
-			return
+	exitChan := make(chan os.Signal, 1)
+	signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-exitChan:
+				return
+			default:
+			}
+			// 发送数据
+			msg := znet.NewMsgPackage(PingId, []byte("Hello from client"))
+			data, err := dp.Pack(msg)
+			if err != nil {
+				fmt.Println("pack error:", err)
+				return
+			}
+			_, err = conn.Write(data)
+			if err != nil {
+				slog.Error("write error:", "err", err)
+				return
+			}
+			slog.Info("write success...")
+			// cpu 休眠1秒
+			time.Sleep(1 * time.Second)
 		}
-		_, err = conn.Write(data)
-		if err != nil {
-			slog.Error("write error:", "err", err)
-			return
+	}()
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-exitChan:
+				return
+			default:
+			}
+			msg := znet.NewMsgPackage(helloId, []byte("Hello from client"))
+			data, err := dp.Pack(msg)
+			if err != nil {
+				fmt.Println("pack error:", err)
+				return
+			}
+			_, err = conn.Write(data)
+			if err != nil {
+				slog.Error("write error:", "err", err)
+				return
+			}
+			slog.Info("write success...")
+			// cpu 休眠1秒
+			time.Sleep(1 * time.Second)
 		}
-		slog.Info("write success...")
-		// cpu 休眠1秒
-		time.Sleep(1 * time.Second)
-	}
+	}()
+
+	<-exitChan
+	wg.Wait()
+	fmt.Println("client exit...")
 }

@@ -2,54 +2,15 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log/slog"
-	"net"
 	"zinx/ziface"
 	"zinx/znet"
 )
 
 func main() {
-	// server := znet.NewServer("[Zinx]")
-	// server.AddRouter(&PingRouter{})
-	// server.Serve()
-	listener, err := net.Listen("tcp", "127.0.0.1:8999")
-	if err != nil {
-		fmt.Println("listen err:", err)
-		return
-	}
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("accept err:", err)
-			continue
-		}
-		go func(conn net.Conn) {
-			dp := znet.NewDataPack()
-			for {
-				headData := make([]byte, dp.GetHeadLen())
-				_, err := io.ReadFull(conn, headData)
-				if err != nil {
-					fmt.Println("read head error:", err)
-					break
-				}
-				msgHead, err := dp.Unpack(headData)
-				if err != nil {
-					fmt.Println("unpack err:", err)
-					continue
-				}
-				if msgHead.GetDataLen() > 0 {
-					data := make([]byte, msgHead.GetDataLen())
-					_, err := io.ReadFull(conn, data)
-					if err != nil {
-						fmt.Println("read msg data error:", err)
-						break
-					}
-					slog.Info("receive msg:", "msgID:", msgHead.GetMsgId(), "dataLen:", msgHead.GetDataLen(), "data:", string(data))
-				}
-			}
-		}(conn)
-	}
+	server := znet.NewServer("[Zinx v0.6]")
+	server.AddRouter(1, &PingRouter{})
+	server.AddRouter(2, &HelloRouter{})
+	server.Serve()
 }
 
 type PingRouter struct {
@@ -76,5 +37,35 @@ func (r *PingRouter) PostHandle(request ziface.IRequest) {
 	_, err := request.GetConnection().GetTCPConnection().Write([]byte("post-----ping...ping...ping\n"))
 	if err != nil {
 		fmt.Println("CallBackToClient error")
+	}
+}
+
+type HelloRouter struct {
+	znet.BaseRouter
+}
+
+func (h *HelloRouter) PreHandle(request ziface.IRequest) {
+
+	fmt.Println("Call HelloRouter PreHandle")
+	_, err := request.GetConnection().GetTCPConnection().Write([]byte("before-----Hello...Hello...Hello\n"))
+	if err != nil {
+		fmt.Println("CallBackToClient error")
+	}
+}
+
+func (h *HelloRouter) Handle(request ziface.IRequest) {
+	fmt.Println("Call HelloRouter PreHandle")
+	_, err := request.GetConnection().GetTCPConnection().Write([]byte("before-----Hello...Hello...Hello\n"))
+	if err != nil {
+		fmt.Println("CallBackToClient error")
+	}
+}
+
+func (h *HelloRouter) PostHandle(request ziface.IRequest) {
+	fmt.Println("Call HelloRouter PreHandle")
+	_, err := request.GetConnection().GetTCPConnection().Write([]byte("before-----Hello...Hello...Hello\n"))
+	if err != nil {
+		fmt.Println("CallBackToClient error")
+		return
 	}
 }
