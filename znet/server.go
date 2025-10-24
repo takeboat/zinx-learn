@@ -10,12 +10,12 @@ import (
 )
 
 type Server struct {
-	Name      string
-	IPVersion string
-	IP        string
-	Port      int
-	Log       *logger.Logger
-	Router    ziface.IRouter
+	Name       string
+	IPVersion  string
+	IP         string
+	Port       int
+	Log        *logger.Logger
+	msgHandler ziface.IMsgHandle
 }
 
 func NewServer(name string) ziface.IServer {
@@ -23,12 +23,12 @@ func NewServer(name string) ziface.IServer {
 	utils.GlobalObject.Reload()
 
 	return &Server{
-		Name:      name,
-		IPVersion: "tcp4",
-		IP:        "0.0.0.0",
-		Port:      8999,
-		Log:       logger.NewLogger(logger.WithGroup("zinx-s")),
-		Router:    nil,
+		Name:       name,
+		IPVersion:  "tcp4",
+		IP:         "0.0.0.0",
+		Port:       8999,
+		Log:        logger.NewLogger(logger.WithGroup("zinx-s")),
+		msgHandler: NewMsgHandle(),
 	}
 }
 
@@ -69,7 +69,7 @@ func (s *Server) Start() {
 			}
 			s.Log.Info("accept success", "remoteAddr", conn.RemoteAddr().String())
 			// 创建新的链接对象 并且去调用链接业务
-			dealConn := NewConnection(conn, cid, s.Router)
+			dealConn := NewConnection(conn, cid, s.msgHandler)
 			cid++
 			go dealConn.Start()
 		}
@@ -85,7 +85,7 @@ func (s *Server) Serve() {
 	// TODO 可以做其他业务
 	select {}
 }
-func (s *Server) AddRouter(router ziface.IRouter) {
-	s.Router = router
-	s.Log.Info("add router success", "router", router)
+func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
+	s.Log.Info("add router", "msgId", msgId)
+	s.msgHandler.AddRouter(msgId, router)
 }

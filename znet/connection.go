@@ -1,6 +1,7 @@
 package znet
 
 import (
+	"io"
 	"net"
 	"zinx/logger"
 	"zinx/ziface"
@@ -16,18 +17,18 @@ type Connection struct {
 	// 退出的channel
 	ExitChan chan struct{}
 	// 增加日志
-	Log    *logger.Logger
-	Router ziface.IRouter
+	Log        *logger.Logger
+	MsgHandler ziface.IMsgHandle
 }
 
-func NewConnection(conn *net.TCPConn, connID uint32, r ziface.IRouter) *Connection {
+func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
 	c := &Connection{
-		Conn:     conn,
-		ConnID:   connID,
-		isClosed: false,
-		Router:   r,
-		ExitChan: make(chan struct{}),
-		Log:      logger.NewLogger(logger.WithGroup("connection")),
+		Conn:       conn,
+		ConnID:     connID,
+		isClosed:   false,
+		ExitChan:   make(chan struct{}),
+		Log:        logger.NewLogger(logger.WithGroup("connection")),
+		MsgHandler: msgHandler,
 	}
 	return c
 }
@@ -40,18 +41,29 @@ func (c *Connection) StartReader() {
 
 	for {
 		// 读取客户端数据到buf中
-		buf := make([]byte, 512)
-		cnt, err := c.Conn.Read(buf)
-		if err != nil {
-			c.Log.Error("read from client failed", "connID", c.ConnID, "remoteAddr", c.RemoteAddr().String(), "error", err)
-			continue
+		dp := NewDataPack()
+		headData := make([]byte, dp.GetHeadLen())
+		if _, err := io.ReadFull(c.Conn, headData); err != nil {
+			c.Log.Error("read head error:", "err", err)
+			break
 		}
-		req := &Request{conn: c, data: buf[:cnt]}
-		go func(request ziface.IRequest) {
-			c.Router.PreHandle(request)
-			c.Router.Handle(request)
-			c.Router.PostHandle(request)
-		}(req)
+		// 拆包
+		msg, err := dp.Unpack(headData)
+		if err != nil {
+			c.Log.Error("unpack error:", "err", err)
+			break
+		}
+		var data []byte
+		if msg.GetDataLen() > 0 {
+			data = make([]byte, msg.GetDataLen())
+			if _, err := io.ReadFull(c.Conn, data); err != nil {
+				c.Log.Error("read msg data error:", "err", err)
+				continue
+			}
+		}
+		msg.SetData(data)
+		req := &Request{conn: c, msg: msg}
+		go c.MsgHandler.DoMsgHandler(req)
 	}
 }
 func (c *Connection) Start() {
