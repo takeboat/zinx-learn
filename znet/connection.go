@@ -13,28 +13,34 @@ import (
 链接模块
 */
 type Connection struct {
-	Conn     *net.TCPConn
-	ConnID   uint32
-	isClosed bool
+	TcpServer ziface.IServer
+	Conn      *net.TCPConn
+	ConnID    uint32
+	isClosed  bool
 	// 退出的channel
 	ExitChan chan struct{}
 	// 增加日志
 	Log        *logger.Logger
 	MsgHandler ziface.IMsgHandle
 	// 无缓冲管道， 用于读写两个goroutine之间的消息通信
-	msgChan chan []byte
+	msgChan     chan []byte
+	msgBuffChan chan []byte
 }
 
-func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
+func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
 	c := &Connection{
-		Conn:       conn,
-		ConnID:     connID,
-		isClosed:   false,
-		ExitChan:   make(chan struct{}),
-		Log:        logger.NewLogger(logger.WithGroup("connection")),
-		MsgHandler: msgHandler,
-		msgChan:    make(chan []byte),
+		TcpServer:   server,
+		Conn:        conn,
+		ConnID:      connID,
+		isClosed:    false,
+		ExitChan:    make(chan struct{}),
+		Log:         logger.NewLogger(logger.WithGroup("connection")),
+		MsgHandler:  msgHandler,
+		msgChan:     make(chan []byte),
+		msgBuffChan: make(chan []byte, utils.GlobalObject.MaxMsgChanLen),
 	}
+	// conn added to server mgr
+	c.TcpServer.GetConnMgr().Add(c)
 	return c
 }
 
@@ -107,7 +113,9 @@ func (c *Connection) Stop() {
 	// 关闭socket链接
 	c.Conn.Close()
 	// 关闭退出channel
+	c.TcpServer.GetConnMgr().Remove(c) // 删除conn连接 从connmgr中
 	close(c.ExitChan)
+	close(c.msgBuffChan)
 }
 
 func (c *Connection) GetTCPConnection() *net.TCPConn {

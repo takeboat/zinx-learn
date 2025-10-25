@@ -17,6 +17,7 @@ type GlobalObj struct {
 	MaxConn          uint32 `json:"mac_conn"`            // 当前服务器主机允许的最大链接个数
 	WorkerPoolSize   uint32 `json:"worker_pool_size"`    // 工作池大小
 	MaxWorkerTaskLen uint32 `json:"max_worker_task_len"` // 当前工作池最大任务长度
+	MaxMsgChanLen    uint32 `json:"max_msg_chan_len"`    // 最大的消息通道数量
 	// config
 	ConfFilePath string `json:"conf_file_path"`
 }
@@ -45,6 +46,7 @@ func init() {
 		WorkerPoolSize:   10,
 		MaxWorkerTaskLen: 1024,
 		ConfFilePath:     "conf/zinx.json",
+		MaxMsgChanLen:    1024,
 	}
 	GlobalObject.Reload()
 }

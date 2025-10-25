@@ -16,6 +16,7 @@ type Server struct {
 	Port       int
 	Log        *logger.Logger
 	msgHandler ziface.IMsgHandle
+	ConnMgr    ziface.IConnManager
 }
 
 func NewServer(name string) ziface.IServer {
@@ -29,6 +30,7 @@ func NewServer(name string) ziface.IServer {
 		Port:       8999,
 		Log:        logger.NewLogger(logger.WithGroup("zinx-s")),
 		msgHandler: NewMsgHandle(),
+		ConnMgr:    NewConnManager(),
 	}
 }
 
@@ -70,9 +72,13 @@ func (s *Server) Start() {
 				s.Log.Error("accept error", "err", err)
 				continue
 			}
+			if s.ConnMgr.Len() >= int(utils.GlobalObject.MaxConn) {
+				conn.Close()
+				continue
+			}
 			s.Log.Info("accept success", "remoteAddr", conn.RemoteAddr().String())
 			// 创建新的链接对象 并且去调用链接业务
-			dealConn := NewConnection(conn, cid, s.msgHandler)
+			dealConn := NewConnection(s, conn, cid, s.msgHandler)
 			cid++
 			go dealConn.Start()
 		}
@@ -80,7 +86,8 @@ func (s *Server) Start() {
 }
 
 func (s *Server) Stop() {
-	s.Log.Error("server stop not impl")
+	s.Log.Info("server stop", "name", s.Name)
+	s.ConnMgr.ClearConn()
 }
 
 func (s *Server) Serve() {
@@ -91,4 +98,8 @@ func (s *Server) Serve() {
 func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
 	s.Log.Info("add router", "msgId", msgId)
 	s.msgHandler.AddRouter(msgId, router)
+}
+
+func (s *Server) GetConnMgr() ziface.IConnManager {
+	return s.ConnMgr
 }
