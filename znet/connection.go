@@ -9,9 +9,6 @@ import (
 	"zinx/ziface"
 )
 
-/*
-链接模块
-*/
 type Connection struct {
 	TcpServer ziface.IServer
 	Conn      *net.TCPConn
@@ -92,6 +89,15 @@ func (c *Connection) StartWriter() {
 				c.Log.Error("write msg error:", "err", err)
 				return
 			}
+		case data, ok := <-c.msgBuffChan:
+			if ok {
+				if _, err := c.Conn.Write(data); err != nil {
+					c.Log.Error("write msg error, conn writer exit", "error", err)
+					return
+				}
+			}
+			c.Log.Error("msgBuffChan is closed")
+			return
 		case <-c.ExitChan:
 			return
 		}
@@ -101,6 +107,7 @@ func (c *Connection) Start() {
 	c.Log.Info("connection start", "connID", c.ConnID)
 	go c.StartReader()
 	go c.StartWriter()
+	c.TcpServer.CallOnConnStart(c)
 	<-c.ExitChan
 	c.Log.Info("connection stop", "connID", c.ConnID)
 }
@@ -111,6 +118,7 @@ func (c *Connection) Stop() {
 	}
 	c.isClosed = true
 	// 关闭socket链接
+	c.TcpServer.CallOnConnStop(c)
 	c.Conn.Close()
 	// 关闭退出channel
 	c.TcpServer.GetConnMgr().Remove(c) // 删除conn连接 从connmgr中
@@ -139,5 +147,19 @@ func (c *Connection) SendMsg(msgId uint32, data []byte) error {
 		return err
 	}
 	c.msgChan <- msg
+	return nil
+}
+
+func (c *Connection) SendBuffMsg(msgId uint32, data []byte) error {
+	if c.isClosed {
+		return errors.New("connection closed")
+	}
+	dp := NewDataPack()
+	msg, err := dp.Pack(NewMsgPackage(msgId, data))
+	if err != nil {
+		c.Log.Error("pack error:", "err", err)
+		return err
+	}
+	c.msgBuffChan <- msg
 	return nil
 }

@@ -7,10 +7,27 @@ import (
 )
 
 func main() {
-	server := znet.NewServer("[Zinx v0.6]")
+	server := znet.NewServer("[Zinx]")
+	server.SetOnConnStart(DoConnectionBegin)
+	server.SetOnConnStop(DoConnectionLost)
+
 	server.AddRouter(1, &PingRouter{})
 	server.AddRouter(2, &HelloRouter{})
 	server.Serve()
+}
+
+// 创建连接的时候执行
+func DoConnectionBegin(conn ziface.IConnection) {
+	fmt.Println("DoConnecionBegin is Called ... ")
+	err := conn.SendMsg(2, []byte("DoConnection BEGIN..."))
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+// 连接断开的时候执行
+func DoConnectionLost(conn ziface.IConnection) {
+	fmt.Println("DoConneciotnLost is Called ... ")
 }
 
 type PingRouter struct {

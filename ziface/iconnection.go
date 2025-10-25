@@ -15,6 +15,8 @@ type IConnection interface {
 	RemoteAddr() net.Addr
 	// 发送消息给客户端
 	SendMsg(msgId uint32, data []byte) error
+	// 添加带缓冲发送消息接口
+	SendBuffMsg(msgId uint32, data []byte) error //添加带缓冲发送消息接口
 }
 
 // 定义处理链接的方法

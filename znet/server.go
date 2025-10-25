@@ -10,13 +10,15 @@ import (
 )
 
 type Server struct {
-	Name       string
-	IPVersion  string
-	IP         string
-	Port       int
-	Log        *logger.Logger
-	msgHandler ziface.IMsgHandle
-	ConnMgr    ziface.IConnManager
+	Name        string
+	IPVersion   string
+	IP          string
+	Port        int
+	Log         *logger.Logger
+	msgHandler  ziface.IMsgHandle
+	ConnMgr     ziface.IConnManager
+	OnConnStart func(conn ziface.IConnection)
+	OnConnStop  func(conn ziface.IConnection)
 }
 
 func NewServer(name string) ziface.IServer {
@@ -102,4 +104,26 @@ func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
 
 func (s *Server) GetConnMgr() ziface.IConnManager {
 	return s.ConnMgr
+}
+
+func (s *Server) SetOnConnStart(f func(ziface.IConnection)) {
+	s.OnConnStart = f
+}
+
+func (s *Server) SetOnConnStop(f func(ziface.IConnection)) {
+	s.OnConnStop = f
+}
+
+func (s *Server) CallOnConnStart(conn ziface.IConnection) {
+	if s.OnConnStart != nil {
+		s.Log.Info("----------->CallOnConnStart------------>")
+		s.OnConnStart(conn)
+	}
+}
+
+func (s *Server) CallOnConnStop(conn ziface.IConnection) {
+	if s.OnConnStop != nil {
+		s.Log.Info("----------->CallOnConnStop------------>")
+		s.OnConnStop(conn)
+	}
 }
