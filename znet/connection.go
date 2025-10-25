@@ -2,8 +2,10 @@ package znet
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"sync"
 	"zinx/logger"
 	"zinx/utils"
 	"zinx/ziface"
@@ -20,8 +22,10 @@ type Connection struct {
 	Log        *logger.Logger
 	MsgHandler ziface.IMsgHandle
 	// 无缓冲管道， 用于读写两个goroutine之间的消息通信
-	msgChan     chan []byte
-	msgBuffChan chan []byte
+	msgChan      chan []byte
+	msgBuffChan  chan []byte
+	property     map[string]interface{}
+	propertyLock sync.RWMutex
 }
 
 func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
@@ -35,6 +39,7 @@ func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, msgH
 		MsgHandler:  msgHandler,
 		msgChan:     make(chan []byte),
 		msgBuffChan: make(chan []byte, utils.GlobalObject.MaxMsgChanLen),
+		property:    make(map[string]interface{}),
 	}
 	// conn added to server mgr
 	c.TcpServer.GetConnMgr().Add(c)
@@ -162,4 +167,25 @@ func (c *Connection) SendBuffMsg(msgId uint32, data []byte) error {
 	}
 	c.msgBuffChan <- msg
 	return nil
+}
+
+func (c *Connection) SetProperty(key string, value interface{}) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+	c.property[key] = value
+}
+
+func (c *Connection) GetProperty(key string) (interface{}, error) {
+	c.propertyLock.RLock()
+	defer c.propertyLock.RUnlock()
+	if value, ok := c.property[key]; ok {
+		return value, nil
+	}
+	return nil, fmt.Errorf("`%s` property not found", key)
+}
+
+func (c *Connection) RemoveProperty(key string) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+	delete(c.property, key)
 }
