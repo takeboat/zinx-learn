@@ -36,7 +36,7 @@ type PingRouter struct {
 
 func (r *PingRouter) PreHandle(request ziface.IRequest) {
 	fmt.Println("Call PingRouter PreHandle")
-	_, err := request.GetConnection().GetTCPConnection().Write([]byte("before-----ping...ping...ping\n"))
+	err := request.GetConnection().SendBuffMsg(1, []byte("ping...ping...ping"))
 	if err != nil {
 		fmt.Println("CallBackToClient error")
 	}

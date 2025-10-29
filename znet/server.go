@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 	"zinx/logger"
 	"zinx/utils"
 	"zinx/ziface"
@@ -93,9 +96,12 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) Serve() {
-	s.Start()
-	// TODO 可以做其他业务
-	select {}
+	s.Start() // 异步函数
+	exitChan := make(chan os.Signal, 1)
+	signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
+
+	<-exitChan
+	s.Stop()
 }
 func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
 	s.Log.Info("add router", "msgId", msgId)
